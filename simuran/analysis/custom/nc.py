@@ -101,6 +101,27 @@ def count_cells(recording):
         return output
 
 
+def is_pyramidal(wave_width, spike_rate, mean_autocorr):
+    """The values should be in msec."""
+    # From https://www.jneurosci.org/content/19/1/274
+    # Pyramidal
+    # Width 0.44 +- 0.005 ms
+    # Mean autocorrelation 7.1 +- 0.12 ms
+    # Spike rate 1.4 +- 0.01 Hz
+    # Interneuron
+    # Width 0.24 +- 0.01 ms
+    # Mean autocorrelation 12.0 +- 0.17 ms
+    # Spike rate 13.0 +- 1.62
+    wave_is_inter = wave_width < 0.2
+    rate_is_inter = spike_rate > 5
+    autocorr_is_inter = mean_autocorr > 10
+
+    if wave_is_inter + rate_is_inter + autocorr_is_inter >= 2:
+        return False
+    else:
+        return True
+
+
 def stat_per_cell(recording):
     output = {}
     all_analyse = recording.get_set_units()
@@ -122,7 +143,13 @@ def stat_per_cell(recording):
                 unit.underlying.set_unit_no(cell)
                 unit.underlying.wave_property()
                 results = unit.underlying.get_results()
-                output[out_str_start + "_" + str(cell)] = results["Mean width"]
+                mean_width = results["Mean width"] * 1000
+                spike_rate = results["Mean Spiking Freq"]
+                # TODO get this to be the centre of mass
+                # Of the autocorrogram.
+                autocorr = np.correlate(unit.timestamps, x, mode='full')
+                autocorr = autocorr[autocorr.size / 2]
+                autocorr_mean = np.sum(i * unit.sample)
                 unit.underlying.reset_results()
     return output
 
